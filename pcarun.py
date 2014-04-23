@@ -14,11 +14,6 @@ import aosutils
 
 # TODO: start from bam files
 
-def pairs(plist):
-	for i, x in enumerate(plist[:-1]):
-		for y in plist[i+1:]:
-			yield((x, y))
-
 def prep(args):
 	debug(args)
 	# make dir
@@ -36,107 +31,79 @@ def prep(args):
 				sample_input.append(line.strip())
 		if not sample_input:
 			sample_input = ['*']
-
-		if args.allpairs:
-			samps = [','.join(x) for x in pairs(sample_input)]
-		else:
-			samps = [','.join(sample_input)]
-#			sname = os.path.splitext(vcf_input[0][0])[0]
-
-		if args.pseudodip:
-			pdip_arg = '--pseudodip'
-		if args.callmask:
-			cmask_arg = '--callmask=%s' % os.path.abspath(args.callmask)
+		samp = ','.join(sample_input)
 
 	elif args.s1name == 'ms':
 		ms_file = os.path.abspath(args.MS_FILE)
 		if not os.path.exists(ms_file):
 			error('No such file: %s' % ms_file)
 			return(2)
-		samps = [ms_file]
 
-	debug('\n'.join(samps))
-	rdir = os.path.abspath('.')
-	for samp in samps:
-		os.chdir(rdir)
-		if args.s1name == 'vcf':
-			sname = '-'.join([os.path.splitext(os.path.basename(x))[0] for x in samp.split(',')])
-		elif args.s1name == 'ms':
-			sname = os.path.basename(samp)
-			if args.unphased:
-				sname += '.unphased'
+	debug(samp)
+	if args.dirpref:
+		sname = args.dirpref
+	elif args.s1name == 'vcf':
+#		sname = '-'.join([os.path.splitext(os.path.basename(x))[0] for x in samp.split(',')])
+		sname = os.path.basename(vcf_input[0][0]).replace('.bgz', '').replace('.vcf', '')
+		warning('taking dirname from first vcf file')
+	elif args.s1name == 'ms':
+		sname = os.path.basename(ms_file)
 
-		maindir = sname + '.smcdir'
-		if not os.path.exists(maindir):
-			info('creating directory %s' % maindir)
-			if not args.sim:
-				os.mkdir(maindir)
-		if os.path.exists(maindir):
-			os.chdir(maindir)
+	maindir = sname + '.pcadir'
+	if not os.path.exists(maindir):
+		info('creating directory %s' % maindir)
+		if not args.sim:
+			os.mkdir(maindir)
+	if os.path.exists(maindir):
+		os.chdir(maindir)
 
-		# make segsep/psmcfa dir
-		if args.psmc:
-			subdir = 'psmcfa'
-		else:
-			subdir = 'segsep'
-		if not os.path.exists(subdir):
-			info('creating directory %s/%s' % (maindir, subdir))
-			if not args.sim:
-				os.mkdir(subdir)
-		elif not args.replace:
-			warning('directory %s/%s exists; skipping; use --replace to override' % (maindir, subdir))
-#			return(2)
-			continue
-		if os.path.exists(subdir):
-			os.chdir(subdir)
+	outpref = 'eig'
+#		# make snp-geno dir
+#		subdir = 'snp'
+#		if not os.path.exists(subdir):
+#			info('creating directory %s/%s' % (maindir, subdir))
+#			if not args.sim:
+#				os.mkdir(subdir)
+#		elif not args.replace:
+#			warning('directory %s/%s exists; skipping; use --replace to override' % (maindir, subdir))
+##			return(2)
+#			continue
+#		if os.path.exists(subdir):
+#			os.chdir(subdir)
 
-		# make segsep/psmcfa files
-		if args.s1name == 'vcf':
-			if args.vcf_list and not (args.sim or os.path.exists('tmp')):
-				os.mkdir('tmp')
+	# make segsep/psmcfa files
+	if args.s1name == 'vcf':
+		if args.vcf_list and not (args.sim or os.path.exists('tmp')):
+			os.mkdir('tmp')
 
-			for vcf, repvcf in vcf_input:
-				vcfname = os.path.basename(vcf).replace('.bgz', '').replace('.vcf', '')
-				jobname = ':'.join((subdir, sname, vcfname))
-				outname = '.'.join((vcfname, subdir))
-				if samp == '*':
-					bcfview = 'bcftools view'
-				else:
-					bcfview = 'bcftools view -s %s' % (samp)
-				if repvcf:
-					tmprep = 'tmp/%s.rep.gz' % vcfname
-					if not args.usetmp:
-						cmd = '%s %s | gzip > %s' % (bcfview, repvcf, tmprep)
-						info('extracting replacement calls from %s' % (repvcf))
-						aosutils.subcall(cmd, args.sim, wait = True)
-					reparg = '--replacecalls=%s' % tmprep
-				else:
-					reparg = ''
-				if args.psmc:
-					outarg = '--psmcfa'
-#					cmd = 'bsub.py "%s %s | vcfutils_noinfo.pl vcf2fq | fq2psmcfa -" -o psmcfa/$s -M 2 -j %s' % (bcfview, vcf, outname, jobname)
-				else:
-					outarg = '--segsep'
-#					cmd = 'bsub.py "%s %s | vcf-proc.py --segsep --alleles %s" -o %s -M 1 -t 2 -j %s' % (bcfview, vcf, reparg, outname, jobname)
-				cmd = 'bsub.py "%s %s | vcf-proc.py %s %s %s %s" -o %s -M 2 -j %s' % (bcfview, vcf, outarg, pdip_arg, cmask_arg, reparg, outname, jobname)
-				if args.replace:
-					cmd += ' --replace'
-				if args.bsim:
-					cmd += ' --sim'
-				info('submitting \'%s\'' % (jobname))
-				aosutils.subcall(cmd, args.sim, wait = True)
-		elif args.s1name == 'ms':
-			jobname = ':'.join(('ms2smc', sname))
-			if args.unphased:
-				phasedarg = '--unphased'
+		for vcf, repvcf in vcf_input:
+			vcfname = os.path.basename(vcf).replace('.bgz', '')#.replace('.vcf', '')
+			jobname = ':'.join((sname, vcfname))
+			if samp == '*':
+				bcfview = 'bcftools view'
 			else:
-				phasedarg = ''
-			if args.psmc:
-				cmd = 'ms2smc.py -l 1e7 %s --chrlen=%d --output=psmcfa %s' % (samp, args.chrlen, phasedarg)
+				bcfview = 'bcftools view -s %s' % (samp)
+			if repvcf:
+				tmprep = 'tmp/%s.rep.gz' % vcfname
+				if not args.usetmp:
+					cmd = '%s %s | gzip > %s' % (bcfview, repvcf, tmprep)
+					info('extracting replacement calls from %s' % (repvcf))
+					aosutils.subcall(cmd, args.sim, wait = True)
+				reparg = '--replacecalls=%s' % tmprep
 			else:
-				cmd = 'ms2smc.py -l 1e7 %s --chrlen=%d %s | awk \'{print > $1".segsep"}\'' % (samp, args.chrlen, phasedarg)
-			info('running \'%s\'' % (jobname))
+				reparg = ''
+			cmd = 'bsub.py "%s %s | vcf-proc.py -H --vars %s | varsites2eigenstrat.py --append -p %s" -o %s.out -M 2 -j %s' % (bcfview, vcf, reparg, outpref, outpref, jobname)
+			if args.replace:
+				cmd += ' --replace'
+			if args.bsim:
+				cmd += ' --sim'
+			info('submitting \'%s\'' % (jobname))
 			aosutils.subcall(cmd, args.sim, wait = True)
+	elif args.s1name == 'ms':
+		jobname = ':'.join(('ms2eigenstrat', sname))
+		cmd = 'ms2eigenstrat.py %s --chrlen=%d' % (ms_file, args.chrlen)
+		info('running \'%s\'' % (jobname))
+		aosutils.subcall(cmd, args.sim, wait = True)
 
 def run(args): # run smc inference
 	os.chdir(args.DIR)
@@ -225,9 +192,10 @@ p1 = s.add_parser('prep', help='prepare files for pca analysis')#, add_help=Fals
 s1 = p1.add_subparsers(dest='s1name')#help='sub-command help')
 p11 = s1.add_parser('ms', parents=[pp])#, help='prep help')
 p11.add_argument('MS_FILE', help = 'ms simulation file')
-p11.add_argument('--chrlen', default = 50e6, help='alleles are considered unphased in input') 
+p11.add_argument('--chrlen', default = 50e6, help='sumulated chromosome length') 
 p12 = s1.add_parser('vcf', parents=[pp])#, help='prep help')
 p12.add_argument('VCF_FILE', nargs='*') 
+p12.add_argument('-d', '--dirpref', help='directory name prefix') 
 p12.add_argument('-s', '--samples', help='comma-separated list of sample names in VCF_FILE') 
 p12.add_argument('-S', '--sample_list', help='file containing list of sample names (one per line)') 
 p12.add_argument('-f', '--vcf_list', help='file containing a list of input vcfs (one per line). For each one, a vcf of replacement calls may specified in a second column.') 
