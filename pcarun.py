@@ -57,78 +57,108 @@ def prep(args):
 	if os.path.exists(maindir):
 		os.chdir(maindir)
 
-#		# make snp-geno dir
-#		subdir = 'snp'
-#		if not os.path.exists(subdir):
-#			info('creating directory %s/%s' % (maindir, subdir))
-#			if not args.sim:
-#				os.mkdir(subdir)
-#		elif not args.replace:
-#			warning('directory %s/%s exists; skipping; use --replace to override' % (maindir, subdir))
-##			return(2)
-#			continue
-#		if os.path.exists(subdir):
-#			os.chdir(subdir)
+	# make data dir
+	subdir = 'data'
+	if not os.path.exists(subdir):
+		info('creating directory %s/%s' % (maindir, subdir))
+		if not args.sim:
+			os.mkdir(subdir)
+#	elif not args.replace:
+#		warning('directory %s/%s exists; skipping; use --replace to override' % (maindir, subdir))
+#		return(2)
+##		continue
+	if os.path.exists(subdir):
+		os.chdir(subdir)
 
-	# make eigenstrat files
-	outfile = EPREF + '.ind'
+	if args.plink:
+		opref = 'plink'
+		outfile = opref + '.ped'
+	else:
+		opref = 'eig'
+		outfile = opref + '.ind'
 	if os.path.exists(outfile) and not (args.replace or args.sim):
 		error('%s exists; use replace' % outfile)
 		return(2)
 
+	# make data files
 	if args.s1name == 'vcf':
 		if args.vcf_list and not (args.sim or os.path.exists('tmp')):
 			os.mkdir('tmp')
 
-		for vcf, repvcf in vcf_input:
-			vcfname = os.path.basename(vcf).replace('.bgz', '')#.replace('.vcf', '')
-			jobname = ':'.join((sname, vcfname))
+		if not args.vcfconcat:
+			for vcf, repvcf in vcf_input:
+				if repvcf:
+					tmprep = 'tmp/%s.rep.gz' % vcfname
+					if not args.usetmp:
+						cmd = '%s %s | gzip > %s' % (bcfview, repvcf, tmprep)
+						info('extracting replacement calls from %s' % (repvcf))
+						aosutils.subcall(cmd, args.sim, wait = True)
+					reparg = '--replacecalls=%s' % tmprep
+				else:
+					reparg = ''
+
+				vcfname = os.path.basename(vcf).replace('.bgz', '').replace('.vcf', '')
+				jobname = ':'.join((sname, vcfname))
+				if samp == '*':
+					bcfview = 'bcftools view'
+				else:
+					bcfview = 'bcftools view -s %s ' % (samp)
+				if args.plink:
+					cmd = '%s %s | vcftools --vcf - --plink --out %s' % (bcfview, vcf, vcfname)
+				else:
+					cmd = '%s %s | vcf-proc.py -H --vars %s | varsites2eigenstrat.py --append -p %s' % (bcfview, vcf, reparg, opref)
+				info('processing %s' % (vcf))
+				aosutils.subcall(cmd, args.sim, wait = True)
+		else:
+			vcfs =  ' '.join([x[0] for x in vcf_input])
+			jobname = ':'.join((sname, 'vcf2eig'))
 			if samp == '*':
-				bcfview = 'bcftools view'
+				bcfview = 'bcftools concat %s' % vcfs
 			else:
-				bcfview = 'bcftools view -s %s' % (samp)
-			if repvcf:
-				tmprep = 'tmp/%s.rep.gz' % vcfname
-				if not args.usetmp:
-					cmd = '%s %s | gzip > %s' % (bcfview, repvcf, tmprep)
-					info('extracting replacement calls from %s' % (repvcf))
-					aosutils.subcall(cmd, args.sim, wait = True)
-				reparg = '--replacecalls=%s' % tmprep
-			else:
-				reparg = ''
-#			cmd = 'bsub.py "%s %s | vcf-proc.py -H --vars %s | varsites2eigenstrat.py --append -p %s" -o %s.out -M 2 -j %s' % (bcfview, vcf, reparg, EPREF, EPREF, jobname)
-			cmd = '%s %s | vcf-proc.py -H --vars %s | varsites2eigenstrat.py --append -p %s' % (bcfview, vcf, reparg, EPREF)
-			info('processing %s' % (vcf))
-#			info('running \'%s\'' % (jobname))
+				bcfview = 'bcftools concat %s | bcftools view -s %s - ' % (vcfs, samp)
+			cmd = 'bsub.py "%s | vcf-proc.py -H --vars | varsites2eigenstrat.py -p %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
+			info('submitting \'%s\'' % (jobname))
 			aosutils.subcall(cmd, args.sim, wait = True)
+	
 	elif args.s1name == 'ms':
 		jobname = ':'.join(('ms2eigenstrat', sname))
 		cmd = 'ms2eigenstrat.py %s --chrlen=%d' % (ms_file, args.chrlen)
 		info('running \'%s\'' % (jobname))
 		aosutils.subcall(cmd, args.sim, wait = True)
 
+
 def run(args): # run pca
 	os.chdir(args.DIR)
 	debug('In %s:' % args.DIR)
 
-	if not args.sim:
-		parname = args.runpref + '.par'
-		parfile = open(parname, 'w')
-		parfile.write('genotypename:\t%s.geno\n' % EPREF)
-		parfile.write('snpname:\t%s.snp\n' % EPREF)
-		parfile.write('indivname:\t%s.ind\n' % EPREF)
-		parfile.write('evecoutname:\t%s.evec\n' % args.runpref)
-		parfile.write('evaloutname:\t%s.eval\n' % args.runpref)
-		parfile.write('numoutevec:\t%d\n' % args.numoutevec)
-		parfile.write('nsnpldregress:\t%d\n' % args.nsnpldregress)
-		parfile.write('numthreads:\t%d\n' % args.threads)
-		parfile.close()
+	if args.plink:
+		opref = 'plink'
+	else:
+		opref = 'eig'
+
+	if args.parfile:
+		args.runpref = os.path.splitext(args.parfile)[0]
+
+	if not args.parfile:
+		args.parfile = args.runpref + '.par'
+		info('writing params to %s' % args.parfile)
+		if not args.sim:
+			parf = open(args.parfile, 'w')
+			parf.write('genotypename:\tdata/%s.geno\n' % opref)
+			parf.write('snpname:\tdata/%s.snp\n' % EPREF)
+			parf.write('indivname:\tdata/%s.ind\n' % EPREF)
+			parf.write('evecoutname:\t%s.evec\n' % args.runpref)
+			parf.write('evaloutname:\t%s.eval\n' % args.runpref)
+			parf.write('numoutevec:\t%d\n' % args.numoutevec)
+			parf.write('nsnpldregress:\t%d\n' % args.nsnpldregress)
+			parf.write('numthreads:\t%d\n' % args.threads)
+			parf.close()
 
 	outf = args.runpref + '.out'
 	jobname = ':'.join(('smartpca', args.runpref, os.path.basename(os.path.abspath(os.path.normpath(args.DIR)))))
 	if not args.memory:
 		args.memory = 10
-	cmd = 'bsub.py "smartpca -p %s" -o %s -M %d -t %d -q %s -j %s' % (parname, outf, args.memory, args.threads, args.queue, jobname)
+	cmd = 'bsub.py "smartpca -p %s" -o %s -M %d -t %d -q %s -j %s' % (args.parfile, outf, args.memory, args.threads, args.queue, jobname)
 	if args.replace:
 		cmd += ' --replace'
 	if args.bsim:
@@ -156,6 +186,7 @@ pp.add_argument('--sim', action='store_true', default = False, help = 'dry run')
 pp.add_argument('-v', '--verbose', action='store_true', default = False)#, help = 'dry run')
 pp.add_argument('--debug', action='store_true', default = False, help=argparse.SUPPRESS)
 pp.add_argument('--bsim', action='store_true', default = False, help=argparse.SUPPRESS)
+pp.add_argument('--plink', action='store_true', default = False, help='use plink') 
 
 p = argparse.ArgumentParser()
 s = p.add_subparsers()#help='sub-command help')
@@ -168,6 +199,7 @@ p11.add_argument('--chrlen', default = 50e6, help='sumulated chromosome length')
 p12 = s1.add_parser('vcf', parents=[pp])#, help='prep help')
 p12.add_argument('VCF_FILE', nargs='*') 
 p12.add_argument('-d', '--dirpref', help='directory name prefix') 
+p12.add_argument('--vcfconcat', action='store_true', default = False, help='process vcfs on a single stream') 
 p12.add_argument('-s', '--samples', help='comma-separated list of sample names in VCF_FILE') 
 p12.add_argument('-S', '--sample_list', help='file containing list of sample names (one per line)') 
 p12.add_argument('-f', '--vcf_list', help='file containing a list of input vcfs (one per line). For each one, a vcf of replacement calls may specified in a second column.') 
@@ -176,7 +208,8 @@ p1.set_defaults(func=prep)
 
 p2 = s.add_parser('run', parents=[pp], help='run smartpca')
 p2.add_argument('DIR')
-p2.add_argument('-p', '--runpref', default='eig', help='output file prefix') 
+p2.add_argument('-p', '--parfile', default='', help='input parameter file') 
+p2.add_argument('--runpref', default='smartpca', help='output file prefix') 
 p2.add_argument('--numoutevec', type=int, default=4, help = 'number of output eigenvectors (smartpca)')
 p2.add_argument('--nsnpldregress', type=int, default=0, help = 'number of LD regression SNPs (smartpca)')
 p2.add_argument('-t', '--threads', type=int, default=8, help = 'number of threads to use')
