@@ -12,7 +12,8 @@ from logging import error, warning, info, debug, critical
 
 import aosutils
 
-EPREF = 'eig'
+DATASUBDIR = 'data'
+PLINK_MERGELIST = 'plink-merge-list'
 
 def prep(args):
 	debug(args)
@@ -58,17 +59,16 @@ def prep(args):
 		os.chdir(maindir)
 
 	# make data dir
-	subdir = 'data'
-	if not os.path.exists(subdir):
-		info('creating directory %s/%s' % (maindir, subdir))
+	if not os.path.exists(DATASUBDIR):
+		info('creating directory %s/%s' % (maindir, DATASUBDIR))
 		if not args.sim:
-			os.mkdir(subdir)
+			os.mkdir(DATASUBDIR)
 #	elif not args.replace:
-#		warning('directory %s/%s exists; skipping; use --replace to override' % (maindir, subdir))
+#		warning('directory %s/%s exists; skipping; use --replace to override' % (maindir, DATASUBDIR))
 #		return(2)
 ##		continue
-	if os.path.exists(subdir):
-		os.chdir(subdir)
+	if os.path.exists(DATASUBDIR):
+		os.chdir(DATASUBDIR)
 
 	if args.plink:
 		opref = 'plink'
@@ -81,7 +81,7 @@ def prep(args):
 		return(2)
 
 	# make data files
-	if args.s1name == 'vcf':
+	if args.s1name == 'vcf' and not args.ldprune-only:
 		if args.vcf_list and not (args.sim or os.path.exists('tmp')):
 			os.mkdir('tmp')
 
@@ -119,46 +119,81 @@ def prep(args):
 			cmd = 'bsub.py "%s | vcf-proc.py -H --vars | varsites2eigenstrat.py -p %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
 			info('submitting \'%s\'' % (jobname))
 			aosutils.subcall(cmd, args.sim, wait = True)
-	
+
 	elif args.s1name == 'ms':
 		jobname = ':'.join(('ms2eigenstrat', sname))
 		cmd = 'ms2eigenstrat.py %s --chrlen=%d' % (ms_file, args.chrlen)
 		info('running \'%s\'' % (jobname))
 		aosutils.subcall(cmd, args.sim, wait = True)
 
+def ldprune(args): # run pca
+	os.chdir(args.DIR)
+	debug('In %s:' % args.DIR)
 
+#	if args.plink:
+	opref = 'plink'
+
+	if os.path.exists(DATASUBDIR):
+		os.chdir(DATASUBDIR)
+	else:
+		error('no %s dir' % DATASUBDIR)
+		return(2)
+
+	pprefs = [pfile.replace('.ped', '') for pfile in glob.glob('*.ped')]
+	for ppref in pprefs:
+		cmd = 'plink --indep-pairwise 1000kb 100 %.2f --file %s --out %s' % (args.r2, ppref, ppref)
+		info('pruning %s' % (pfile))
+		aosutils.subcall(cmd, args.sim, wait = True)
+		cmd = 'plink --extract %s.prune.in --file %s --out %s.LDP --make-bed' % (ppref, ppref, ppref)
+		info('extracting non-LD SNPs in %s' % (pfile))
+		aosutils.subcall(cmd, args.sim, wait = True)
+#	info('merging: %s' % ' '.join(pprefs))
+	info('writing merge list')
+	ldpprefs = [ppref + '.LDP' for ppref in pprefs]
+	if not args.sim:
+		fmrglist = open(PLINK_MERGELIST, 'w')
+		fmrglist.write('\n'.join(ldpprefs[1:]) + '\n')
+	cmd = 'plink --merge-list %s --bfile %s --out %s --make-bed' % (PLINK_MERGELIST, ldpprefs[0], opref)
+	info('merging plink files %s' % (' '.join(ldpprefs)))
+	aosutils.subcall(cmd, args.sim, wait = True)
+	
 def run(args): # run pca
 	os.chdir(args.DIR)
 	debug('In %s:' % args.DIR)
 
 	if args.plink:
 		opref = 'plink'
+#		jobname = ':'.join(('plink-pca', args.runpref, os.path.basename(os.path.abspath(os.path.normpath(args.DIR)))))
+		jobname = ':'.join(('plink-pca', os.path.basename(os.path.abspath(os.path.normpath(args.DIR)))))
+		outf =  opref + '.out'
+#		cmd = 'bsub.py "plink --pca --bfile %s/%s" -o %s.pca.out -M %d -t %d -q %s -j %s' % (DATASUBDIR, opref, outf, args.memory, args.threads, args.queue, jobname)
+		cmd = 'plink --pca --bfile %s/%s' % (DATASUBDIR, opref)
 	else:
 		opref = 'eig'
 
-	if args.parfile:
-		args.runpref = os.path.splitext(args.parfile)[0]
+		if args.parfile:
+			args.runpref = os.path.splitext(args.parfile)[0]
 
-	if not args.parfile:
-		args.parfile = args.runpref + '.par'
-		info('writing params to %s' % args.parfile)
-		if not args.sim:
-			parf = open(args.parfile, 'w')
-			parf.write('genotypename:\tdata/%s.geno\n' % opref)
-			parf.write('snpname:\tdata/%s.snp\n' % EPREF)
-			parf.write('indivname:\tdata/%s.ind\n' % EPREF)
-			parf.write('evecoutname:\t%s.evec\n' % args.runpref)
-			parf.write('evaloutname:\t%s.eval\n' % args.runpref)
-			parf.write('numoutevec:\t%d\n' % args.numoutevec)
-			parf.write('nsnpldregress:\t%d\n' % args.nsnpldregress)
-			parf.write('numthreads:\t%d\n' % args.threads)
-			parf.close()
+		if not args.parfile:
+			args.parfile = args.runpref + '.par'
+			info('writing params to %s' % args.parfile)
+			if not args.sim:
+				parf = open(args.parfile, 'w')
+				parf.write('genotypename:\tdata/%s.geno\n' % opref)
+				parf.write('snpname:\tdata/%s.snp\n' % opref)
+				parf.write('indivname:\tdata/%s.ind\n' % opref)
+				parf.write('evecoutname:\t%s.evec\n' % args.runpref)
+				parf.write('evaloutname:\t%s.eval\n' % args.runpref)
+				parf.write('numoutevec:\t%d\n' % args.numoutevec)
+				parf.write('nsnpldregress:\t%d\n' % args.nsnpldregress)
+				parf.write('numthreads:\t%d\n' % args.threads)
+				parf.close()
 
-	outf = args.runpref + '.out'
-	jobname = ':'.join(('smartpca', args.runpref, os.path.basename(os.path.abspath(os.path.normpath(args.DIR)))))
-	if not args.memory:
-		args.memory = 10
-	cmd = 'bsub.py "smartpca -p %s" -o %s -M %d -t %d -q %s -j %s' % (args.parfile, outf, args.memory, args.threads, args.queue, jobname)
+		outf = args.runpref + '.out'
+		jobname = ':'.join(('smartpca', args.runpref, os.path.basename(os.path.abspath(os.path.normpath(args.DIR)))))
+		if not args.memory:
+			args.memory = 10
+		cmd = 'bsub.py "smartpca -p %s" -o %s -M %d -t %d -q %s -j %s' % (args.parfile, outf, args.memory, args.threads, args.queue, jobname)
 	if args.replace:
 		cmd += ' --replace'
 	if args.bsim:
@@ -204,6 +239,7 @@ p12.add_argument('-s', '--samples', help='comma-separated list of sample names i
 p12.add_argument('-S', '--sample_list', help='file containing list of sample names (one per line)') 
 p12.add_argument('-f', '--vcf_list', help='file containing a list of input vcfs (one per line). For each one, a vcf of replacement calls may specified in a second column.') 
 p12.add_argument('--usetmp', action='store_true', default=False, help='use existing replacement calls in tmp dir') 
+#p12.add_argument('--ldprune-only', action='store_true', default = False, help='skip conversion from vcf') 
 p1.set_defaults(func=prep)
 
 p2 = s.add_parser('run', parents=[pp], help='run smartpca')
@@ -217,10 +253,10 @@ p2.add_argument('-q', '--queue', default='normal', help = 'queue to use')
 p2.add_argument('-M', '--memory', type=int, default=0, help = 'GB of RAM to use')
 p2.set_defaults(func=run)
 
-#p3 = s.add_parser('plot', parents=[pp], help='plot pca results')
-#p3.add_argument('DIR')
-##p3.add_argument('-t', '--tgen', type=int, default=30.0, help = 'generation time (y)')
-#p3.set_defaults(func=plot)
+p3 = s.add_parser('ldprune', parents=[pp], help='ldprune')
+p3.add_argument('DIR')
+p3.add_argument('--r2', type=float, default=0.1, help = 'R^2 threshold for LD pruning')
+p3.set_defaults(func=ldprune)
 
 args = p.parse_args()
 
