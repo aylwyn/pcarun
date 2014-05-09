@@ -104,7 +104,8 @@ def prep(args):
 				else:
 					bcfview = 'bcftools view -s %s ' % (samp)
 				if args.plink:
-					cmd = '%s %s | vcftools --vcf - --plink --out %s' % (bcfview, vcf, vcfname)
+#					cmd = '%s %s | vcftools --vcf - --plink --out %s' % (bcfview, vcf, vcfname)
+					cmd = '%s %s | plink --vcf /dev/stdin --const-fid 0 --allow-extra-chr --out %s' % (bcfview, vcfname)
 				else:
 					cmd = '%s %s | vcf-proc.py -H --vars %s | varsites2eigenstrat.py --append -p %s' % (bcfview, vcf, reparg, opref)
 				info('processing %s' % (vcf))
@@ -116,7 +117,10 @@ def prep(args):
 				bcfview = 'bcftools concat %s' % vcfs
 			else:
 				bcfview = 'bcftools concat %s | bcftools view -s %s - ' % (vcfs, samp)
-			cmd = 'bsub.py "%s | vcf-proc.py -H --vars | varsites2eigenstrat.py -p %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
+			if args.plink:
+				cmd = 'bsub.py "%s | plink --vcf /dev/stdin --const-fid 0 --allow-extra-chr --out %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
+			else:
+				cmd = 'bsub.py "%s | vcf-proc.py -H --vars | varsites2eigenstrat.py -p %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
 			info('submitting \'%s\'' % (jobname))
 			aosutils.subcall(cmd, args.sim, wait = True)
 
@@ -139,6 +143,7 @@ def ldprune(args): # run pca
 		error('no %s dir' % DATASUBDIR)
 		return(2)
 
+#	pprefs = [pfile.replace('.ped', '') for pfile in glob.glob('*.ped')]
 	pprefs = [pfile.replace('.ped', '') for pfile in glob.glob('*.ped')]
 	for ppref in pprefs:
 		cmd = 'plink --indep-pairwise 1000kb 100 %.2f --file %s --out %s' % (args.r2, ppref, ppref)
