@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+# Aylwyn Scally 2014
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,6 +7,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
 #from scipy.stats import norm
+
+class PCAGroup(object):
+    def __init__(self, name, col='blue', ptype = 'o'):
+        self.name = name
+        self.pcol = col
+        self.ptype = ptype
+
+    def show(self):
+        print("\t".join([self.name, self.ptype, self.pcol]))
 
 p = argparse.ArgumentParser()
 #pp.add_argument('--sim', action='store_true', default = False, help = 'dry run')
@@ -15,28 +25,41 @@ p.add_argument('--eigenstrat', action='store_true', default = False, help = 'eig
 p.add_argument('--skip', type=int, default = 0, help = 'skip initial lines')
 p.add_argument('EVEC_FILE')
 p.add_argument('-c', '--components', default = '1,2', help = 'Components to plot [\'1,2\']')
-p.add_argument('-l', '--legend_file', default = '', help = 'File with info for legend')
+p.add_argument('-L', '--legend_file', default = '', help = 'File with info for legend')
 p.add_argument('-o', '--out', default = '', help = 'prefix for pdf file')
 args = p.parse_args()
 
-pc = args.components.split(',')
+if args.eigenstrat:
+	namecol = 0
+	pc = [int(x) for x in args.components.split(',')]
+else:
+	namecol = 1
+	pc = [int(x) + 1 for x in args.components.split(',')]
 
-#coldict = {'gorberber': 'red', 'gorbergra': 'green', 'gorgorgor': 'blue', 'Gbb': 'red', 'Gbg': 'green', 'Ggg': 'blue', 'Ggd': 'magenta'}
-#coldict = {'Gbb': 'red', 'Gbg': 'green', 'Ggg': 'blue', 'Ggd': 'magenta'}
-#colnames = ['Name', 'PC1', 'PC2', 'PC3', 'PC4', 'species']
-tb = pd.read_table(args.EVEC_FILE, header = None, names=colnames, comment = '#', sep = '\s*', skiprows = args.skip)
+pgrp = {}
+group = {}
+if args.legend_file:
+	for tok in (line.split() for line in open(args.legend_file)):
+		if tok[0] == 'group':
+			group[tok[1]] = PCAGroup(*tok[1:])
+			group[tok[1]].show()
+		else:
+			pgrp[tok[0]] = group[tok[1]]
+
+tb = pd.read_table(args.EVEC_FILE, header = None, comment = '#', sep = '\s*', skiprows = args.skip)
 
 for i in range(len(tb)):
-	sp = tb.ix[i, 'species']
-	icol = coldict[sp]
-	plt.plot(tb.ix[i, pc[0]], tb.ix[i, pc[1]], 'o', color=icol)
+	name = tb.ix[i, namecol]
+	if name in pgrp:
+		tpinfo = pgrp[name]
+	else:
+		tpinfo = PCAGroup['0']
+	plt.plot(tb.ix[i, pc[0]], tb.ix[i, pc[1]], marker=tpinfo.ptype, color=tpinfo.pcol)
 	if args.labels:
-		plt.text(tb.ix[i, pc[0]], tb.ix[i, pc[1]], tb.ix[i, 'Name'], color='grey', fontsize='xx-small')
-#	plt.plot(tb['PC1'], tb['PC2'], '.')
+		plt.text(tb.ix[i, pc[0]], tb.ix[i, pc[1]], name, color='grey', fontsize='xx-small')
 
-#plt.title(iname)
-plt.xlabel(pc[0])
-plt.ylabel(pc[1])
+plt.xlabel('PC' + str(pc[0]))
+plt.ylabel('PC' + str(pc[1]))
 
 #nobs = len(oddsrat)
 #meanodds = np.mean(oddsrat[:, 1])
@@ -57,15 +80,13 @@ plt.axis([1.1*x for x in plt.axis()])
 #fig = plt.gcf()
 #fig.set_size_inches(12, 4)
 
-#plt.legend(tuple(coldict.keys()), tuple(coldict.values()))
-
-from matplotlib.lines import Line2D # Using Line2D as proxy artist
-arts = []
-for sp in coldict.keys():
-	arts.append(Line2D(range(1), range(1), color="white", marker='o', markerfacecolor=coldict[sp]))
- 
- # Calling the handles and labels to create the legend, where the handles are the club and circle created previously, and the labels are what the markers are labeled in the legend. Also moves the legend outside the figure
-plt.legend(arts, coldict.keys(), loc = "best", numpoints=1)#, bbox_to_anchor = (1, 0.5), numpoints = 1)
+if args.legend_file:
+	from matplotlib.lines import Line2D # Using Line2D as proxy artist
+	arts = []
+	for g in group.keys():
+		arts.append(Line2D(range(1), range(1), color="white", marker=group[g].ptype, markerfacecolor=group[g].pcol))
+	 
+	plt.legend(arts, group.keys(), loc = "best", numpoints=1)
 
 if args.hc:
 	if not args.out:
