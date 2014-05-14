@@ -91,7 +91,7 @@ def prep(args):
 				if args.eigenstrat:
 					cmd = '%s %s | vcf-proc.py -H --vars | varsites2eigenstrat.py --append -p %s' % (bcfview, vcf, opref)
 				else:
-					cmd = '%s %s | plink --vcf /dev/stdin --double-id --allow-extra-chr --out %s' % (bcfview, vcfname)
+					cmd = '%s %s | plink --vcf /dev/stdin --double-id --allow-extra-chr --set-missing-snp-ids \"@:#\" --make-bed --out %s' % (bcfview, vcfname)
 				info('processing %s' % (vcf))
 				aosutils.subcall(cmd, args.sim, wait = True)
 		else:
@@ -105,8 +105,8 @@ def prep(args):
 				cmd = 'bsub.py "%s | vcf-proc.py -H --vars | varsites2eigenstrat.py -p %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
 			else:
 				jobname = ':'.join((sname, 'vcf2plink'))
-				cmd = 'bsub.py "%s | set-missing-snp-ids.awk | plink --vcf /dev/stdin --double-id --allow-extra-chr --out %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
-#				cmd = 'bsub.py "%s | plink --vcf /dev/stdin --double-id --set-missing-snp-ids @:# --out %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
+#				cmd = 'bsub.py "%s | set-missing-snp-ids.awk | plink --vcf /dev/stdin --double-id --allow-extra-chr --out %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
+				cmd = 'bsub.py "%s | plink --vcf /dev/stdin --double-id --set-missing-snp-ids \"@:#\" --allow-extra-chr --make-bed --out %s" -o %s.out -M 2 -j %s' % (bcfview, opref, opref, jobname)
 			if args.replace:
 				cmd += ' --replace'
 			info('submitting \'%s\'' % (jobname))
@@ -134,7 +134,7 @@ def ldprune(args): # run pca
 	cmd = 'plink --indep-pairwise 1000kb 100 %.2f --bfile %s --out %s --allow-extra-chr' % (args.r2, ipref, opref)
 	info('pruning data in %s' % (args.DIR))
 	aosutils.subcall(cmd, args.sim, wait = True)
-	cmd = 'plink --extract %s.prune.in --bfile %s --out %s --make-bed --allow-extra-chr' % (opref, ipref, opref)
+	cmd = 'plink --extract %s.prune.in --bfile %s --out %s --allow-extra-chr --make-bed' % (opref, ipref, opref)
 	info('extracting non-LD SNPs in %s' % (args.DIR))
 	aosutils.subcall(cmd, args.sim, wait = True)
 	
@@ -171,7 +171,7 @@ def run(args): # run pca
 	else:
 		opref = 'plink'
 		if args.ldp:
-			opref += '.LDP_' + args.ldp
+			opref = 'LDP_' + args.r2
 
 		jobname = ':'.join(('plink-pca', os.path.basename(os.path.abspath(os.path.normpath(args.DIR)))))
 		outf =  opref + '.out'
@@ -234,6 +234,7 @@ p2.add_argument('-t', '--threads', type=int, default=8, help = 'number of thread
 p2.add_argument('-q', '--queue', default='normal', help = 'queue to use')
 p2.add_argument('-M', '--memory', type=int, default=0, help = 'GB of RAM to use')
 p2.add_argument('--ldp', action='store_true', default = False, help='use LD-pruned data') 
+p2.add_argument('--r2', default = '0.2', help = 'R^2 threshold for LD-pruned data')
 p2.set_defaults(func=run)
 
 p3 = s.add_parser('ldprune', parents=[pp], help='ldprune (plink)')
