@@ -31,10 +31,9 @@ args = p.parse_args()
 
 if args.eigenstrat:
 	namecol = 0
-	pc = [int(x) for x in args.components.split(',')]
 else:
 	namecol = 1
-	pc = [int(x) + 1 for x in args.components.split(',')]
+pc = [int(x) for x in args.components.split(',')]
 
 pgrp = {}
 group = {}
@@ -54,9 +53,9 @@ for i in range(len(tb)):
 		tpinfo = pgrp[name]
 	else:
 		tpinfo = PCAGroup['0']
-	plt.plot(tb.ix[i, pc[0]], tb.ix[i, pc[1]], marker=tpinfo.ptype, color=tpinfo.pcol)
+	plt.plot(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], marker=tpinfo.ptype, color=tpinfo.pcol)
 	if args.labels:
-		plt.text(tb.ix[i, pc[0]], tb.ix[i, pc[1]], name, color='grey', fontsize='xx-small')
+		plt.text(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], name, color='grey', fontsize='xx-small')
 
 plt.xlabel('PC' + str(pc[0]))
 plt.ylabel('PC' + str(pc[1]))
@@ -91,7 +90,7 @@ if args.legend_file:
 if args.hc:
 	if not args.out:
 		args.out = args.EVEC_FILE
-	ofile = args.out + '.' + ''.join(pc) + '.pdf'
+	ofile = args.out + '.PC' + '-'.join([str(x) for x in pc]) + '.pdf'
 	plt.savefig(ofile)
 	print('plot written to %s' % ofile)
 else:
