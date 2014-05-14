@@ -146,37 +146,33 @@ def run(args): # run pca
 		opref = 'eig'
 
 		if args.parfile:
-			args.runpref = os.path.splitext(args.parfile)[0]
+			args.pref = os.path.splitext(args.parfile)[0]
 
 		if not args.parfile:
-			args.parfile = args.runpref + '.par'
+			args.parfile = args.pref + '.par'
 			info('writing params to %s' % args.parfile)
 			if not args.sim:
 				parf = open(args.parfile, 'w')
 				parf.write('genotypename:\tdata/%s.geno\n' % opref)
 				parf.write('snpname:\tdata/%s.snp\n' % opref)
 				parf.write('indivname:\tdata/%s.ind\n' % opref)
-				parf.write('evecoutname:\t%s.evec\n' % args.runpref)
-				parf.write('evaloutname:\t%s.eval\n' % args.runpref)
+				parf.write('evecoutname:\t%s.evec\n' % args.pref)
+				parf.write('evaloutname:\t%s.eval\n' % args.pref)
 				parf.write('numoutevec:\t%d\n' % args.numoutevec)
 				parf.write('nsnpldregress:\t%d\n' % args.nsnpldregress)
 				parf.write('numthreads:\t%d\n' % args.threads)
 				parf.close()
 
-		outf = args.runpref + '.out'
+		outf = args.pref + '.out'
 		jobname = ':'.join(('smartpca', args.runpref, os.path.basename(os.path.abspath(os.path.normpath(args.DIR)))))
 		if not args.memory:
 			args.memory = 10
 		cmd = 'bsub.py "smartpca -p %s" -o %s -M %d -t %d -q %s -j %s' % (args.parfile, outf, args.memory, args.threads, args.queue, jobname)
 	else:
-		opref = 'plink'
-		if args.ldp:
-			opref = 'LDP_' + args.r2
-
 		jobname = ':'.join(('plink-pca', os.path.basename(os.path.abspath(os.path.normpath(args.DIR)))))
-		outf =  opref + '.out'
+		outf =  args.pref + '.out'
 #		cmd = 'bsub.py "plink --pca --bfile %s/%s" -o %s.pca.out -M %d -t %d -q %s -j %s' % (DATASUBDIR, opref, outf, args.memory, args.threads, args.queue, jobname)
-		cmd = 'plink --pca --bfile %s/%s --out %s --allow-extra-chr' % (DATASUBDIR, opref, opref)
+		cmd = 'plink --pca --bfile %s/%s --out %s --allow-extra-chr' % (DATASUBDIR, args.pref, args.pref)
 
 	if args.replace:
 		cmd += ' --replace'
@@ -215,15 +211,15 @@ p1.set_defaults(func=prep)
 
 p2 = s.add_parser('run', parents=[pp], help='run smartpca')
 p2.add_argument('DIR')
-p2.add_argument('-p', '--parfile', default='', help='input parameter file (eigenstrat)') 
-p2.add_argument('--runpref', default='smartpca', help='output file prefix') 
-p2.add_argument('--numoutevec', type=int, default=4, help = 'number of output eigenvectors (smartpca)')
-p2.add_argument('--nsnpldregress', type=int, default=0, help = 'number of LD regression SNPs (smartpca)')
+p2.add_argument('--parfile', default='', help='input parameter file (eigenstrat)') 
+p2.add_argument('--numoutevec', type=int, default=4, help = 'number of output eigenvectors (eigenstrat)')
+p2.add_argument('--nsnpldregress', type=int, default=0, help = 'number of LD regression SNPs (eigenstrat)')
 p2.add_argument('-t', '--threads', type=int, default=8, help = 'number of threads to use')
 p2.add_argument('-q', '--queue', default='normal', help = 'queue to use')
 p2.add_argument('-M', '--memory', type=int, default=0, help = 'GB of RAM to use')
-p2.add_argument('--ldp', action='store_true', default = False, help='use LD-pruned data') 
-p2.add_argument('--r2', default = '0.2', help = 'R^2 threshold for LD-pruned data')
+#p2.add_argument('--ldp', action='store_true', default = False, help='use LD-pruned data') 
+#p2.add_argument('--ldp', default = '', help = 'use LD-pruned data R^2 threshold for LD-pruned data')
+p2.add_argument('-p', '--pref', default = 'pca', help = 'input/output file prefix')
 p2.set_defaults(func=run)
 
 p3 = s.add_parser('ldprune', parents=[pp], help='ldprune (plink)')
