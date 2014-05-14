@@ -176,7 +176,7 @@ def run(args): # run pca
 		jobname = ':'.join(('plink-pca', os.path.basename(os.path.abspath(os.path.normpath(args.DIR)))))
 		outf =  opref + '.out'
 #		cmd = 'bsub.py "plink --pca --bfile %s/%s" -o %s.pca.out -M %d -t %d -q %s -j %s' % (DATASUBDIR, opref, outf, args.memory, args.threads, args.queue, jobname)
-		cmd = 'plink --pca --bfile %s/%s --allow-extra-chr' % (DATASUBDIR, opref)
+		cmd = 'plink --pca --bfile %s/%s --out %s --allow-extra-chr' % (DATASUBDIR, opref, opref)
 
 	if args.replace:
 		cmd += ' --replace'
@@ -187,17 +187,6 @@ def run(args): # run pca
 	else:
 		info('submitting \'%s\'' % (jobname))
 		aosutils.subcall(cmd, args.sim, wait = True)
-
-def plot(args): # make plots
-	if not args.sim:
-		os.chdir(args.DIR)
-	sname = os.path.basename(os.path.normpath(args.DIR))
-	jobname = ':'.join(('smcplot', sname))
-
-	cmd = 'smcplot.py -m run.final.txt -t %f -u %e --hc -o %s' % (args.tgen, args.mu, sname)
-	info('running \'%s\'' % (jobname))
-	aosutils.subcall(cmd, args.sim, wait = True)
-
 
 pp = argparse.ArgumentParser(add_help=False)
 pp.add_argument('--replace', action='store_true', default = False, help = 'replace existing files')
