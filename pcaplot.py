@@ -38,21 +38,27 @@ pc = [int(x) for x in args.components.split(',')]
 pgrp = {}
 group = {}
 if args.legend_file:
-	for tok in (line.split() for line in open(args.legend_file)):
+	for line in open(args.legend_file):
+		if line.isspace():
+			continue
+		tok = line.strip().split('\t')
 		if tok[0] == 'group':
 			group[tok[1]] = PCAGroup(*tok[1:])
-			group[tok[1]].show()
+#			group[tok[1]].show()
 		else:
 			pgrp[tok[0]] = group[tok[1]]
 
 tb = pd.read_table(args.EVEC_FILE, header = None, comment = '#', sep = '\s*', skiprows = args.skip)
 
+usedgrps = set()
 for i in range(len(tb)):
 	name = tb.ix[i, namecol]
 	if name in pgrp:
 		tpinfo = pgrp[name]
 	else:
 		tpinfo = PCAGroup['0']
+#	print(pgrp[name].name)
+	usedgrps.add(pgrp[name].name)
 	plt.plot(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], marker=tpinfo.ptype, color=tpinfo.pcol)
 	if args.labels:
 		plt.text(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], name, color='grey', fontsize='xx-small')
@@ -79,13 +85,15 @@ plt.axis([1.1*x for x in plt.axis()])
 #fig = plt.gcf()
 #fig.set_size_inches(12, 4)
 
+lugrps = sorted(list(usedgrps))
 if args.legend_file:
 	from matplotlib.lines import Line2D # Using Line2D as proxy artist
 	arts = []
-	for g in group.keys():
+#	for g in group.keys():
+	for g in lugrps:
 		arts.append(Line2D(range(1), range(1), color="white", marker=group[g].ptype, markerfacecolor=group[g].pcol))
 	 
-	plt.legend(arts, group.keys(), loc = "best", numpoints=1)
+	plt.legend(arts, lugrps, loc = "best", numpoints=1, fontsize='small')
 
 if args.hc:
 	if not args.out:
