@@ -195,7 +195,7 @@ pp.add_argument('--eigenstrat', action='store_true', default = False, help='use 
 p = argparse.ArgumentParser()
 s = p.add_subparsers()#help='sub-command help')
 
-p1 = s.add_parser('prep', help='prepare files for pca analysis')#, add_help=False)
+p1 = s.add_parser('prep', help='prepare files for PCA')#, add_help=False)
 s1 = p1.add_subparsers(dest='s1name')#help='sub-command help')
 p11 = s1.add_parser('ms', parents=[pp])#, help='prep help')
 p11.add_argument('MS_FILE', help = 'ms simulation file')
@@ -209,7 +209,7 @@ p12.add_argument('-S', '--sample_list', help='file containing list of sample nam
 p12.add_argument('-f', '--vcf_list', help='file containing a list of input vcfs (one per line)') 
 p1.set_defaults(func=prep)
 
-p2 = s.add_parser('run', parents=[pp], help='run smartpca')
+p2 = s.add_parser('run', parents=[pp], help='run PCA')
 p2.add_argument('DIR')
 p2.add_argument('--parfile', default='', help='input parameter file (eigenstrat)') 
 p2.add_argument('--numoutevec', type=int, default=4, help = 'number of output eigenvectors (eigenstrat)')
