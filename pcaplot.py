@@ -22,6 +22,7 @@ p = argparse.ArgumentParser()
 p.add_argument('--hc', action='store_true', default = False, help = 'hard copy (pdf)')
 p.add_argument('--labels', action='store_true', default = False, help = 'label points')
 p.add_argument('--eigenstrat', action='store_true', default = False, help = 'eigenstrat format')
+p.add_argument('--opensymbols', action='store_true', default = False, help = 'plot open symbols')
 p.add_argument('--skip', type=int, default = 0, help = 'skip initial lines')
 p.add_argument('EVEC_FILE')
 p.add_argument('-c', '--components', default = '1,2', help = 'Components to plot [\'1,2\']')
@@ -56,10 +57,13 @@ for i in range(len(tb)):
 	if name in pgrp:
 		tpinfo = pgrp[name]
 	else:
-		tpinfo = PCAGroup['0']
+		tpinfo = PCAGroup('')
 #	print(pgrp[name].name)
 	usedgrps.add(pgrp[name].name)
-	plt.plot(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], marker=tpinfo.ptype, color=tpinfo.pcol)
+	if args.opensymbols:
+		plt.plot(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], marker=tpinfo.ptype, markeredgecolor=tpinfo.pcol, markerfacecolor='none', markersize=10, markeredgewidth=1.5)
+	else:
+		plt.plot(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], marker=tpinfo.ptype, color=tpinfo.pcol)
 	if args.labels:
 		plt.text(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], name, color='grey', fontsize='xx-small')
 
@@ -91,9 +95,14 @@ if args.legend_file:
 	arts = []
 #	for g in group.keys():
 	for g in lugrps:
-		arts.append(Line2D(range(1), range(1), color="white", marker=group[g].ptype, markerfacecolor=group[g].pcol))
+		if args.opensymbols:
+			arts.append(Line2D(range(1), range(1), color="white", marker=group[g].ptype, markeredgecolor=group[g].pcol, markerfacecolor='none', markersize=10, markeredgewidth=1.5))
+		else:
+			arts.append(Line2D(range(1), range(1), color="white", marker=group[g].ptype, markerfacecolor=group[g].pcol))
 	 
-	plt.legend(arts, lugrps, loc = "best", numpoints=1, fontsize='small')
+	plt.legend(arts, lugrps, loc = "best", numpoints=1, fontsize='12')
+
+plt.tight_layout()
 
 if args.hc:
 	if not args.out:
