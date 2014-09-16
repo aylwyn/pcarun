@@ -27,6 +27,7 @@ p.add_argument('--skip', type=int, default = 0, help = 'skip initial lines')
 p.add_argument('EVEC_FILE')
 p.add_argument('-c', '--components', default = '1,2', help = 'Components to plot [\'1,2\']')
 p.add_argument('-L', '--legend_file', default = '', help = 'File with info for legend')
+p.add_argument('-e', '--eigenval_file', default = '', help = 'File of eigenvalues')
 p.add_argument('-o', '--out', default = '', help = 'prefix for pdf file')
 args = p.parse_args()
 
@@ -67,20 +68,15 @@ for i in range(len(tb)):
 	if args.labels:
 		plt.text(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], name, color='grey', fontsize='xx-small')
 
-plt.xlabel('PC' + str(pc[0]))
-plt.ylabel('PC' + str(pc[1]))
-
-#nobs = len(oddsrat)
-#meanodds = np.mean(oddsrat[:, 1])
-#sdodds = np.std(oddsrat[:, 1])
-#plt.hlines(meanodds, 0, xmax, color='m')
-#plt.hlines(0, 0, xmax, color='k')
-#siglevels = [norm.ppf(1-0.25/nobs, meanodds, sdodds), norm.ppf(0.25/nobs, meanodds, sdodds)]
-#plt.hlines(siglevels, 0, xmax, color='m', linestyles='dashed')
-
-#plt.vlines(gchrs['gpos'], -2, 2)
-#plt.gca().set_xticks(gchrs['gmid'][:-1])
-#plt.gca().set_xticklabels(gchrs['nname'][:-1], fontsize='small')
+if args.eigenval_file:
+	evals = [float(x) for x in open(args.eigenval_file).readlines()]
+	evalsum = sum(evals)
+	varfrac = [evals[x - 1] / evalsum for x in pc]
+	plt.xlabel('PC%s (%.1f %% of variance)' % (str(pc[0]), 100 * varfrac[0]))
+	plt.ylabel('PC%s (%.1f %% of variance)' % (str(pc[1]), 100 * varfrac[1]))
+else:
+	plt.xlabel('PC' + str(pc[0]))
+	plt.ylabel('PC' + str(pc[1]))
 
 #plt.xlim(0.05,0.15)
 plt.axis([1.1*x for x in plt.axis()])
