@@ -7,15 +7,16 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
 #from scipy.stats import norm
+from matplotlib import rcParams
 
 class PCAGroup(object):
-    def __init__(self, name, col='blue', ptype = 'o'):
-        self.name = name
-        self.pcol = col
-        self.ptype = ptype
+	def __init__(self, name, col='blue', ptype = 'o'):
+		self.name = name
+		self.pcol = col
+		self.ptype = ptype
 
-    def show(self):
-        print("\t".join([self.name, self.ptype, self.pcol]))
+	def show(self):
+		print("\t".join([self.name, self.ptype, self.pcol]))
 
 p = argparse.ArgumentParser()
 #pp.add_argument('--sim', action='store_true', default = False, help = 'dry run')
@@ -27,9 +28,26 @@ p.add_argument('--skip', type=int, default = 0, help = 'skip initial lines')
 p.add_argument('EVEC_FILE')
 p.add_argument('-c', '--components', default = '1,2', help = 'Components to plot [\'1,2\']')
 p.add_argument('-L', '--legend_file', default = '', help = 'File with info for legend')
+p.add_argument('--nolegend', action='store_true')
 p.add_argument('-e', '--eigenval_file', default = '', help = 'File of eigenvalues')
 p.add_argument('-o', '--out', default = '', help = 'prefix for pdf file')
 args = p.parse_args()
+
+if args.hc:
+	rcParams['axes.labelsize'] = 6
+	rcParams['xtick.labelsize'] = 6
+	rcParams['ytick.labelsize'] = 6
+	rcParams['legend.fontsize'] = 6
+
+msize = 6
+
+fig = plt.figure()
+if args.hc:
+	fsize = [2.25, 2.25]
+	mar = [0.18, 0.15, 0.037, 0.036]
+	margins = [mar[0], mar[1], 1-mar[2]-mar[0], 1-mar[3]-mar[1]]
+	ax = plt.Axes(fig, margins)
+	fig.add_axes(ax)
 
 if args.eigenstrat:
 	namecol = 0
@@ -62,7 +80,7 @@ for i in range(len(tb)):
 #	print(pgrp[name].name)
 	usedgrps.add(pgrp[name].name)
 	if args.opensymbols:
-		plt.plot(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], marker=tpinfo.ptype, markeredgecolor=tpinfo.pcol, markerfacecolor='none', markersize=10, markeredgewidth=1.5)
+		plt.plot(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], marker=tpinfo.ptype, markeredgecolor=tpinfo.pcol, markerfacecolor='none', markersize=msize)
 	else:
 		plt.plot(tb.ix[i, pc[0] + 1], tb.ix[i, pc[1] + 1], marker=tpinfo.ptype, color=tpinfo.pcol)
 	if args.labels:
@@ -86,21 +104,22 @@ plt.axis([1.1*x for x in plt.axis()])
 #fig.set_size_inches(12, 4)
 
 lugrps = sorted(list(usedgrps))
-if args.legend_file:
+if args.legend_file and not args.nolegend:
 	from matplotlib.lines import Line2D # Using Line2D as proxy artist
 	arts = []
 #	for g in group.keys():
 	for g in lugrps:
 		if args.opensymbols:
-			arts.append(Line2D(range(1), range(1), color="white", marker=group[g].ptype, markeredgecolor=group[g].pcol, markerfacecolor='none', markersize=10, markeredgewidth=1.5))
+			arts.append(Line2D(range(1), range(1), color="white", marker=group[g].ptype, markeredgecolor=group[g].pcol, markerfacecolor='none', markersize=msize))
 		else:
 			arts.append(Line2D(range(1), range(1), color="white", marker=group[g].ptype, markerfacecolor=group[g].pcol))
 	 
 	plt.legend(arts, lugrps, loc = "best", numpoints=1, fontsize='12')
 
-plt.tight_layout()
+#plt.tight_layout()
 
 if args.hc:
+	fig.set_size_inches(fsize[0], fsize[1])
 	if not args.out:
 		args.out = args.EVEC_FILE
 	ofile = args.out + '.PC' + '-'.join([str(x) for x in pc]) + '.pdf'
