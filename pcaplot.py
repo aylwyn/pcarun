@@ -18,7 +18,7 @@ class PCAGroup(object):
 	def show(self):
 		print("\t".join([self.name, self.ptype, self.pcol]))
 
-p = argparse.ArgumentParser()
+p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 #pp.add_argument('--sim', action='store_true', default = False, help = 'dry run')
 p.add_argument('--hc', action='store_true', default = False, help = 'hard copy (pdf)')
 p.add_argument('--labels', action='store_true', default = False, help = 'label points')
@@ -26,11 +26,13 @@ p.add_argument('--eigenstrat', action='store_true', default = False, help = 'eig
 p.add_argument('--opensymbols', action='store_true', default = False, help = 'plot open symbols')
 p.add_argument('--skip', type=int, default = 0, help = 'skip initial lines')
 p.add_argument('EVEC_FILE')
-p.add_argument('-c', '--components', default = '1,2', help = 'Components to plot [\'1,2\']')
+p.add_argument('-c', '--components', default = '1,2', help = 'Components to plot')
 p.add_argument('-L', '--legend_file', default = '', help = 'File with info for legend')
 p.add_argument('--nolegend', action='store_true')
 p.add_argument('-e', '--eigenval_file', default = '', help = 'File of eigenvalues')
 p.add_argument('-o', '--out', default = '', help = 'prefix for pdf file')
+p.add_argument('--figsize', default = '2.25,2.25', help = 'figure size in inches')
+p.add_argument('--fontsize', default = 6, help = 'figure font size in points')
 args = p.parse_args()
 
 if args.hc:
@@ -38,16 +40,14 @@ if args.hc:
 	rcParams['xtick.labelsize'] = 6
 	rcParams['ytick.labelsize'] = 6
 	rcParams['legend.fontsize'] = 6
+	fsize = [float(x) for x in args.figsize.split(',')]
 
-msize = 6
+msize = 5
 
-fig = plt.figure()
-if args.hc:
-	fsize = [2.25, 2.25]
-	mar = [0.18, 0.15, 0.037, 0.036]
-	margins = [mar[0], mar[1], 1-mar[2]-mar[0], 1-mar[3]-mar[1]]
-	ax = plt.Axes(fig, margins)
-	fig.add_axes(ax)
+fig, ax = plt.subplots(1, 1, squeeze=False)
+axv = ax.reshape(-1)
+
+plt.sca(axv[0])
 
 if args.eigenstrat:
 	namecol = 0
@@ -90,11 +90,11 @@ if args.eigenval_file:
 	evals = [float(x) for x in open(args.eigenval_file).readlines()]
 	evalsum = sum(evals)
 	varfrac = [evals[x - 1] / evalsum for x in pc]
-	plt.xlabel('PC%s (%.1f %% of variance)' % (str(pc[0]), 100 * varfrac[0]))
-	plt.ylabel('PC%s (%.1f %% of variance)' % (str(pc[1]), 100 * varfrac[1]))
+	plt.xlabel('PC%s (%.1f %% of variance)' % (str(pc[0]), 100 * varfrac[0]), labelpad=3)
+	plt.ylabel('PC%s (%.1f %% of variance)' % (str(pc[1]), 100 * varfrac[1]), labelpad=2)
 else:
-	plt.xlabel('PC' + str(pc[0]))
-	plt.ylabel('PC' + str(pc[1]))
+	plt.xlabel('PC' + str(pc[0]), labelpad=3)
+	plt.ylabel('PC' + str(pc[1]), labelpad=2)
 
 #plt.xlim(0.05,0.15)
 plt.axis([1.1*x for x in plt.axis()])
@@ -116,7 +116,7 @@ if args.legend_file and not args.nolegend:
 	 
 	plt.legend(arts, lugrps, loc = "best", numpoints=1, fontsize='12')
 
-#plt.tight_layout()
+plt.subplots_adjust(left=0.38/fsize[0],bottom=0.28/fsize[1], right=1 - 0.05/fsize[0], top= 1 - 0.05/fsize[1], hspace = 0.25)
 
 if args.hc:
 	fig.set_size_inches(fsize[0], fsize[1])
