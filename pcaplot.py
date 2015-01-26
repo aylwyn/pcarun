@@ -37,10 +37,10 @@ args = p.parse_args()
 
 if args.hc:
 	rcParams['axes.labelsize'] = 6
-	rcParams['xtick.labelsize'] = 6
-	rcParams['ytick.labelsize'] = 6
-	rcParams['legend.fontsize'] = 6
-	fsize = [float(x) for x in args.figsize.split(',')]
+	rcParams['xtick.labelsize'] = 5
+	rcParams['ytick.labelsize'] = 5
+	rcParams['legend.fontsize'] = 5
+fsize = [float(x) for x in args.figsize.split(',')]
 
 msize = 5
 
@@ -114,9 +114,9 @@ if args.legend_file and not args.nolegend:
 		else:
 			arts.append(Line2D(range(1), range(1), color="white", marker=group[g].ptype, markerfacecolor=group[g].pcol))
 	 
-	plt.legend(arts, lugrps, loc = "best", numpoints=1, fontsize='12')
+	plt.legend(arts, lugrps, loc = "best", numpoints=1)#, fontsize='12')
 
-plt.subplots_adjust(left=0.38/fsize[0],bottom=0.28/fsize[1], right=1 - 0.05/fsize[0], top= 1 - 0.05/fsize[1], hspace = 0.25)
+plt.subplots_adjust(left=0.36/fsize[0],bottom=0.26/fsize[1], right=1 - 0.04/fsize[0], top= 1 - 0.04/fsize[1], hspace = 0.25)
 
 if args.hc:
 	fig.set_size_inches(fsize[0], fsize[1])
